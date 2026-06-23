@@ -224,6 +224,25 @@ JSON payload format (written to RX):
 
 Fields: `s` = session %, `sr` = session reset (minutes), `w` = weekly %, `wr` = weekly reset (minutes), `st` = status, `ok` = success flag.
 
+A single `0x01` byte written to RX (instead of a JSON object) is the **play notification sound** command — the device plays `/notification.wav` through its speaker. Reusing RX avoids a GATT re-pair on firmware updates.
+
+## Attention sound
+
+Boards with a speaker (currently the AMOLED-2.16) can chirp when Claude needs your attention. Point a Claude Code `Notification` hook at a flag file the daemon watches:
+
+```json
+"hooks": {
+  "Notification": [
+    { "matcher": "", "hooks": [
+      { "type": "command",
+        "command": "mkdir -p \"$HOME/.config/claude-usage-monitor\" && touch \"$HOME/.config/claude-usage-monitor/notify\"" }
+    ] }
+  ]
+}
+```
+
+The macOS daemon picks up the flag within ~0.25 s while connected and writes the play command over BLE. Swap the sound by replacing `firmware/data/notification.wav` and running `pio run -e waveshare_amoled_216 -t uploadfs` (any 16-bit PCM WAV). The Linux/Windows daemons don't watch the flag yet.
+
 ## Recompiling fonts
 
 The `firmware/src/font_*.c` files are pre-compiled LVGL bitmap fonts.

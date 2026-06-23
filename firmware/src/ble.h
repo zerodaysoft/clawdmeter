@@ -17,6 +17,10 @@ void ble_clear_bonds(void);
 bool ble_has_bonds(void);
 bool ble_has_data(void);
 const char* ble_get_data(void);
+
+// Edge-triggered: true once after the host writes a play command to the CMD
+// characteristic, then clears. The main loop calls audio_hal_play_notify().
+bool ble_consume_play_request(void);
 void ble_send_ack(void);
 void ble_send_nack(void);
 void ble_request_refresh(void);

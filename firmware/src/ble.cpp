@@ -66,6 +66,7 @@ static bool need_advertise = false;
 static char rx_buf[BLE_BUF_SIZE];
 static volatile bool data_ready = false;
 static volatile bool has_received_data = false;
+static volatile bool play_requested = false;
 static char mac_str[18];
 
 static void start_advertising() {
@@ -126,6 +127,15 @@ class ServerCallbacks : public NimBLEServerCallbacks {
 class RxCallbacks : public NimBLECharacteristicCallbacks {
     void onWrite(NimBLECharacteristic* chr, NimBLEConnInfo& info) override {
         std::string val = chr->getValue();
+        // Single 0x01 byte = "play notification sound" command. Usage data is
+        // always JSON (starts with '{'), so a lone control byte is unambiguous.
+        // Reusing RX (vs a new characteristic) avoids a GATT-cache re-pair when
+        // users update firmware. The main loop consumes the flag via the audio
+        // HAL, keeping this file free of an audio dependency.
+        if (val.length() == 1 && (uint8_t)val[0] == 0x01) {
+            play_requested = true;
+            return;
+        }
         size_t len = std::min(val.length(), (size_t)(BLE_BUF_SIZE - 1));
         memcpy(rx_buf, val.c_str(), len);
         rx_buf[len] = '\0';
@@ -247,6 +257,11 @@ bool ble_has_data(void) {
 const char* ble_get_data(void) {
     data_ready = false;
     return rx_buf;
+}
+
+bool ble_consume_play_request(void) {
+    if (play_requested) { play_requested = false; return true; }
+    return false;
 }
 
 void ble_send_ack(void) {

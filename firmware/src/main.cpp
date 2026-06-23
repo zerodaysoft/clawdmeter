@@ -365,6 +365,8 @@ void loop() {
 
     check_serial_cmd();
 
+    if (ble_consume_play_request()) audio_hal_play_notify();  // host "attention" sound
+
     if (ble_has_data()) {
         if (parse_json(ble_get_data(), &usage)) {
             int g_before = usage_rate_group();

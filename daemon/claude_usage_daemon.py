@@ -36,6 +36,11 @@ SCAN_TIMEOUT = 8.0
 KEYCHAIN_SERVICE = "Claude Code-credentials"
 CREDENTIALS_PATH = Path.home() / ".claude" / ".credentials.json"
 SAVED_ADDR_FILE = Path.home() / ".config" / "claude-usage-monitor" / "ble-address"
+# A Claude Code Notification hook touches this file; the watcher below sends a
+# "play sound" command to the device. See README (attention sound).
+NOTIFY_FLAG = Path.home() / ".config" / "claude-usage-monitor" / "notify"
+NOTIFY_POLL = 0.25  # seconds — how fast the flag is picked up while connected
+CMD_PLAY = b"\x01"
 
 API_URL = "https://api.anthropic.com/v1/messages"
 API_HEADERS_TEMPLATE = {
@@ -438,6 +443,28 @@ def unpair_macos() -> bool:
     return True
 
 
+async def watch_notify(client: BleakClient) -> None:
+    """Send a play-sound command when the Notification hook touches the flag.
+
+    The hook (Claude Code "Notification" event) touches NOTIFY_FLAG; we pick it
+    up within NOTIFY_POLL seconds and write CMD_PLAY to the device, which plays
+    its notification sound. Runs concurrently with the poll loop while connected.
+    """
+    while client.is_connected:
+        try:
+            if NOTIFY_FLAG.exists():
+                NOTIFY_FLAG.unlink(missing_ok=True)
+                try:
+                    # Single 0x01 byte on RX = play command (vs JSON usage data).
+                    await client.write_gatt_char(RX_CHAR_UUID, CMD_PLAY, response=False)
+                    log("Attention sound -> device")
+                except BleakError as e:
+                    log(f"Play command write failed: {e}")
+        except OSError as e:
+            log(f"Notify flag error: {e}")
+        await asyncio.sleep(NOTIFY_POLL)
+
+
 async def connect_and_run(target, stop_event: asyncio.Event) -> bool:
     """Connect to a target and poll until disconnected or stopped.
 
@@ -466,6 +493,11 @@ async def connect_and_run(target, stop_event: asyncio.Event) -> bool:
     session = Session(client)
     await session.setup_refresh_subscription()
 
+    # Drop a stale notify flag so we don't chirp for an event from while we
+    # were disconnected, then start the attention-sound watcher.
+    NOTIFY_FLAG.unlink(missing_ok=True)
+    notify_task = asyncio.create_task(watch_notify(client))
+
     last_poll = 0.0
     used_successfully = False
     try:
@@ -489,6 +521,11 @@ async def connect_and_run(target, stop_event: asyncio.Event) -> bool:
             except asyncio.TimeoutError:
                 pass
     finally:
+        notify_task.cancel()
+        try:
+            await notify_task
+        except asyncio.CancelledError:
+            pass
         try:
             await client.disconnect()
         except BleakError:
