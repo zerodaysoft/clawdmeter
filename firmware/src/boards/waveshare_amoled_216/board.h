@@ -32,6 +32,17 @@
 // ---- PMU ----
 #define AXP2101_ADDR         0x34
 
+// ---- Audio (ES8311 codec + onboard speaker via PA on GPIO46) ----
+// ES8311 shares the I2C bus above (confirmed at 0x18 by an I2C scan). Playback
+// only — the ES7210 mic (0x40) is left untouched, which avoids the shared-I2S
+// MCLK contention that bites mic+speaker setups on these Waveshare boards.
+#define ES8311_I2C_ADDR      0x18
+#define I2S_MCLK_GPIO        42
+#define I2S_BCLK_GPIO        9
+#define I2S_LRCK_GPIO        45
+#define I2S_DOUT_GPIO        8     // ESP → ES8311 DSDIN (playback)
+#define AUDIO_PA_GPIO        46    // speaker amplifier enable (active HIGH)
+
 // ---- Buttons ----
 #define BTN_BACK_GPIO        0     // BOOT — primary, Space (PTT)
 #define BTN_FWD_GPIO         18    // secondary, Shift+Tab (mode toggle)
@@ -43,3 +54,4 @@
 #define BOARD_HAS_IMU              1
 #define BOARD_HAS_BATTERY          1
 #define BOARD_HAS_IO_EXPANDER      0
+#define BOARD_HAS_AUDIO            1

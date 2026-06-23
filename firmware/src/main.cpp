@@ -20,6 +20,7 @@
 #include "hal/input_hal.h"
 #include "hal/power_hal.h"
 #include "hal/imu_hal.h"
+#include "hal/audio_hal.h"
 
 static UsageData usage = {};
 
@@ -165,6 +166,7 @@ static void check_serial_cmd() {
         if (c == '\n' || c == '\r') {
             cmd_buf[cmd_pos] = '\0';
             if (strcmp(cmd_buf, "screenshot") == 0) send_screenshot();
+            else if (strcmp(cmd_buf, "play") == 0) audio_hal_play_notify();
             cmd_pos = 0;
         } else if (cmd_pos < CMD_BUF_SIZE - 1) {
             cmd_buf[cmd_pos++] = c;
@@ -194,6 +196,7 @@ void setup() {
     battery_care_init();  // longevity charging policy (gated on caps.has_battery)
     imu_hal_init();
     touch_hal_init();
+    audio_hal_init();     // ES8311 codec + speaker (no-op on boards without audio)
 
     // ---- LVGL ----
     const int W = board_caps().width;
