@@ -27,6 +27,8 @@ bool power_hal_pwr_long_pressed(void) { return false; }
 bool power_hal_pwr_released(void) { return false; }
 
 // Charge control + temperature. Mirror the 216 port if your board has an
-// AXP2101 (or similar) charger. Stub = no charge gating, no temp sensor.
+// AXP2101 (or similar) charger. Stub = no charge gating, no current control,
+// no temp sensor.
 void  power_hal_set_charging(bool /*enable*/) {}
+void  power_hal_set_charge_current_ma(uint16_t /*ma*/) {}
 float power_hal_temperature_c(void) { return NAN; }

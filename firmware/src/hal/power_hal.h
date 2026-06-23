@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 // Power / battery / power-button abstraction. Replaces the legacy power.h
 // API but keeps the same shape so existing call sites stay clean.
@@ -16,9 +17,16 @@ bool power_hal_is_charging(void);
 bool power_hal_is_vbus_in(void);   // USB cable present (true even without a battery)
 
 // Gate cell charging on/off. Used by the shared battery-care policy
-// (battery_care.cpp) to hold charge at a longevity ceiling and pause on heat.
-// No-op on boards without a controllable charger.
+// (battery_care.cpp) to stop charging near full and pause on heat. No-op on
+// boards without a controllable charger.
 void  power_hal_set_charging(bool enable);
+
+// Set the constant-charge current cap in mA. The board clamps to the nearest
+// rate at or below this that its charger supports (so the effective current is
+// never higher than requested). Used by the battery-care policy to step the
+// current down as the pack fills (fast → taper → trickle). No-op on boards
+// without a controllable charger.
+void  power_hal_set_charge_current_ma(uint16_t ma);
 
 // PMU die temperature in °C, or NAN if the board can't measure it. The
 // battery-care policy uses this to pause charging when the PMU runs hot.

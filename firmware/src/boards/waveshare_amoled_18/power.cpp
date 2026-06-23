@@ -1,4 +1,5 @@
 #include "../../hal/power_hal.h"
+#include "../../hal/board_caps.h"
 #include "board.h"
 #include "io_expander.h"
 #include <Arduino.h>
@@ -19,10 +20,6 @@
 #define CHARGING_POLL_MS 500
 #define PWR_POLL_MS      50
 #define PWR_LONG_MS      1500   // hold threshold, mirrors the AXP LONG IRQ
-
-// Constant-current charge limit. Gentle on the optional kit LiPo; one-line
-// tunable. See boards/waveshare_amoled_216/power.cpp for the rationale.
-#define BATT_CHG_CURRENT XPOWERS_AXP2101_CHG_CUR_200MA
 
 static XPowersPMU pmu;
 
@@ -51,9 +48,10 @@ void power_hal_init(void) {
 
     // Same charger-config fix as the 2.16: without a set charge current the
     // AXP2101 sits at its ~1mA default and a connected battery never charges.
-    // 4.2V LiPo target + gentle current + die-temp measurement for battery_care.
+    // 4.2V target + bootstrap fast current (battery_care steps it down as the
+    // pack fills) + die-temp measurement for battery_care.
     pmu.setChargeTargetVoltage(XPOWERS_AXP2101_CHG_VOL_4V2);
-    pmu.setChargerConstantCurr(BATT_CHG_CURRENT);
+    power_hal_set_charge_current_ma(board_caps().chg_fast_ma);
     pmu.enableTemperatureMeasure();
     pmu.enableCellbatteryCharge();
     // No PMU IRQ wiring — PWR comes via io_expander_get() below.
@@ -116,6 +114,23 @@ bool power_hal_pwr_released(void) {
 void power_hal_set_charging(bool enable) {
     if (enable) pmu.enableCellbatteryCharge();
     else        pmu.disableCellbatteryCharge();
+}
+
+void power_hal_set_charge_current_ma(uint16_t ma) {
+    // AXP2101 constant-charge steps (mA → enum), ascending. Pick the largest
+    // step that doesn't exceed the request so we never charge harder than asked.
+    static const struct { uint16_t ma; uint8_t cur; } STEPS[] = {
+        {100, XPOWERS_AXP2101_CHG_CUR_100MA}, {125, XPOWERS_AXP2101_CHG_CUR_125MA},
+        {150, XPOWERS_AXP2101_CHG_CUR_150MA}, {175, XPOWERS_AXP2101_CHG_CUR_175MA},
+        {200, XPOWERS_AXP2101_CHG_CUR_200MA}, {300, XPOWERS_AXP2101_CHG_CUR_300MA},
+        {400, XPOWERS_AXP2101_CHG_CUR_400MA}, {500, XPOWERS_AXP2101_CHG_CUR_500MA},
+        {600, XPOWERS_AXP2101_CHG_CUR_600MA}, {700, XPOWERS_AXP2101_CHG_CUR_700MA},
+        {800, XPOWERS_AXP2101_CHG_CUR_800MA}, {900, XPOWERS_AXP2101_CHG_CUR_900MA},
+        {1000, XPOWERS_AXP2101_CHG_CUR_1000MA},
+    };
+    uint8_t pick = STEPS[0].cur;   // floor at the lowest supported step
+    for (auto &s : STEPS) { if (s.ma <= ma) pick = s.cur; else break; }
+    pmu.setChargerConstantCurr(pick);
 }
 
 float power_hal_temperature_c(void) {
