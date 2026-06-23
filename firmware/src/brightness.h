@@ -8,3 +8,9 @@
 void    brightness_init(void);    // load saved level from NVS and apply
 void    brightness_cycle(void);   // advance to next level, save, apply
 uint8_t brightness_get(void);     // current PWM level (0..255)
+
+// Event-driven auto brightness from power state (plugged → max; on battery →
+// mid, or min when ≤20%). Fires only on plug/unplug + low-battery transitions,
+// so a manual brightness_cycle() press overrides until the next event. Auto
+// changes are not persisted. Call once per loop.
+void    brightness_handle_power(bool vbus_in, int battery_pct);

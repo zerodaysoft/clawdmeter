@@ -1,6 +1,7 @@
 #include "../../hal/power_hal.h"
 #include "board.h"
 #include <Arduino.h>
+#include <math.h>
 
 // Minimal stub — replace with real power management for your board.
 //
@@ -24,3 +25,8 @@ bool power_hal_pwr_pressed(void) { return false; }
 // or the 1.8" (software hold-timing off a polled GPIO) port. Stub = no gesture.
 bool power_hal_pwr_long_pressed(void) { return false; }
 bool power_hal_pwr_released(void) { return false; }
+
+// Charge control + temperature. Mirror the 216 port if your board has an
+// AXP2101 (or similar) charger. Stub = no charge gating, no temp sensor.
+void  power_hal_set_charging(bool /*enable*/) {}
+float power_hal_temperature_c(void) { return NAN; }
