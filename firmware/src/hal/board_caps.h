@@ -18,6 +18,15 @@ struct BoardCaps {
     bool    has_rotation;    // IMU-driven CPU rotation in the flush callback
     bool    has_battery;     // AXP2101 battery measurement is meaningful
     bool    has_imu;         // QMI8658 (or compatible) is populated
+
+    // Battery-care charge currents (mA), sized to this board's cell. The policy
+    // steps down as the pack fills: chg_fast_ma for the bulk, chg_taper_ma to
+    // ease off, then chg_trickle_ma for a gentle top-up before it stops near
+    // full. The board clamps each to the nearest rate its charger supports.
+    // Ignored when !has_battery. (SoC thresholds live in battery_care_cfg.h.)
+    uint16_t chg_fast_ma;
+    uint16_t chg_taper_ma;
+    uint16_t chg_trickle_ma;
 };
 
 const BoardCaps& board_caps(void);

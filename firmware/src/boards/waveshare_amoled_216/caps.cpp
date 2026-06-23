@@ -9,6 +9,10 @@ static const BoardCaps caps = {
     .has_rotation = true,
     .has_battery = true,
     .has_imu = true,
+    // 3.7V 1000mAh cell: 0.5C / 0.2C / 0.1C step-down.
+    .chg_fast_ma = 500,
+    .chg_taper_ma = 200,
+    .chg_trickle_ma = 100,
 };
 
 const BoardCaps& board_caps(void) { return caps; }
