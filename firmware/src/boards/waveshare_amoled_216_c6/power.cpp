@@ -10,6 +10,10 @@
 #define CHARGING_POLL_MS 500
 #define PWR_POLL_MS      50
 
+// Constant-current charge limit. Gentle on the kit LiPo; one-line tunable.
+// See boards/waveshare_amoled_216/power.cpp for the rationale.
+#define BATT_CHG_CURRENT XPOWERS_AXP2101_CHG_CUR_200MA
+
 // The PMU instance is owned by board_init.cpp on this board — it has to
 // come up before display_hal_init() to enable the LCD power rails. We
 // reuse the same handle here for battery polling and PKEY IRQ wiring.
@@ -33,8 +37,14 @@ void power_hal_init(void) {
     pmu.enableBattVoltageMeasure();
 
     // Mirror the Waveshare XiaoZhi BSP charging config so the on-chip
-    // fuel gauge has the right reference numbers. Without these,
-    // getBatteryPercent() returns -1 / shows "---" on the UI.
+    // fuel gauge has the right reference numbers. Without a set charge current
+    // the AXP2101 sits at its ~1mA default and never charges a connected cell;
+    // getBatteryPercent() also reads near-empty. 4.2V target + gentle current +
+    // die-temp measurement for the shared battery_care policy.
+    pmu.setChargeTargetVoltage(XPOWERS_AXP2101_CHG_VOL_4V2);
+    pmu.setChargerConstantCurr(BATT_CHG_CURRENT);
+    pmu.enableTemperatureMeasure();
+    pmu.enableCellbatteryCharge();
 
     pmu.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
     pmu.clearIrqStatus();
@@ -91,4 +101,13 @@ bool power_hal_pwr_long_pressed(void) {
 bool power_hal_pwr_released(void) {
     if (pwr_released_flag) { pwr_released_flag = false; return true; }
     return false;
+}
+
+void power_hal_set_charging(bool enable) {
+    if (enable) pmu.enableCellbatteryCharge();
+    else        pmu.disableCellbatteryCharge();
+}
+
+float power_hal_temperature_c(void) {
+    return pmu.getTemperature();
 }

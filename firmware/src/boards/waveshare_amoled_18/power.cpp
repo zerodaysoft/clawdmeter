@@ -20,6 +20,10 @@
 #define PWR_POLL_MS      50
 #define PWR_LONG_MS      1500   // hold threshold, mirrors the AXP LONG IRQ
 
+// Constant-current charge limit. Gentle on the optional kit LiPo; one-line
+// tunable. See boards/waveshare_amoled_216/power.cpp for the rationale.
+#define BATT_CHG_CURRENT XPOWERS_AXP2101_CHG_CUR_200MA
+
 static XPowersPMU pmu;
 
 static int      cached_pct        = -1;
@@ -44,6 +48,14 @@ void power_hal_init(void) {
 
     pmu.enableBattDetection();
     pmu.enableBattVoltageMeasure();
+
+    // Same charger-config fix as the 2.16: without a set charge current the
+    // AXP2101 sits at its ~1mA default and a connected battery never charges.
+    // 4.2V LiPo target + gentle current + die-temp measurement for battery_care.
+    pmu.setChargeTargetVoltage(XPOWERS_AXP2101_CHG_VOL_4V2);
+    pmu.setChargerConstantCurr(BATT_CHG_CURRENT);
+    pmu.enableTemperatureMeasure();
+    pmu.enableCellbatteryCharge();
     // No PMU IRQ wiring — PWR comes via io_expander_get() below.
 
     cached_charging = pmu.isCharging();
@@ -99,4 +111,13 @@ bool power_hal_pwr_long_pressed(void) {
 bool power_hal_pwr_released(void) {
     if (pwr_released_flag) { pwr_released_flag = false; return true; }
     return false;
+}
+
+void power_hal_set_charging(bool enable) {
+    if (enable) pmu.enableCellbatteryCharge();
+    else        pmu.disableCellbatteryCharge();
+}
+
+float power_hal_temperature_c(void) {
+    return pmu.getTemperature();
 }

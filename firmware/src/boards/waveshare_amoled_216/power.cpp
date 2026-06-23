@@ -13,6 +13,10 @@
 #define CHARGING_POLL_MS 500
 #define PWR_POLL_MS      50
 
+// Constant-current charge limit. Gentle on the small kit LiPo and keeps the
+// PMU cool. One-line tunable — bump for faster charging on a larger cell.
+#define BATT_CHG_CURRENT XPOWERS_AXP2101_CHG_CUR_200MA
+
 static XPowersPMU pmu;
 
 static int      cached_pct        = -1;
@@ -34,6 +38,16 @@ void power_hal_init(void) {
 
     pmu.enableBattDetection();
     pmu.enableBattVoltageMeasure();
+
+    // Without these the AXP2101 sits at its ~1mA charge-current default, so a
+    // connected battery never actually charges and the gauge reads near-empty
+    // forever. Set a standard 4.2V LiPo target and a gentle current, enable die
+    // temperature measurement (battery-care policy reads it), then start the
+    // charger. The shared battery_care policy gates charging from here on.
+    pmu.setChargeTargetVoltage(XPOWERS_AXP2101_CHG_VOL_4V2);
+    pmu.setChargerConstantCurr(BATT_CHG_CURRENT);
+    pmu.enableTemperatureMeasure();
+    pmu.enableCellbatteryCharge();
 
     pmu.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
     pmu.clearIrqStatus();
@@ -90,4 +104,13 @@ bool power_hal_pwr_long_pressed(void) {
 bool power_hal_pwr_released(void) {
     if (pwr_released_flag) { pwr_released_flag = false; return true; }
     return false;
+}
+
+void power_hal_set_charging(bool enable) {
+    if (enable) pmu.enableCellbatteryCharge();
+    else        pmu.disableCellbatteryCharge();
+}
+
+float power_hal_temperature_c(void) {
+    return pmu.getTemperature();
 }

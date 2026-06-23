@@ -12,6 +12,7 @@
 #include "idle.h"
 #include "idle_cfg.h"
 #include "brightness.h"
+#include "battery_care.h"
 
 #include "hal/board_caps.h"
 #include "hal/display_hal.h"
@@ -190,6 +191,7 @@ void setup() {
     brightness_init();  // load the user's saved brightness level and apply via idle
 
     power_hal_init();
+    battery_care_init();  // longevity charging policy (gated on caps.has_battery)
     imu_hal_init();
     touch_hal_init();
 
@@ -354,6 +356,9 @@ void loop() {
         last_charging = charging;
         ui_update_battery(pct, charging);
     }
+
+    battery_care_tick();                                       // longevity charge gating
+    brightness_handle_power(power_hal_is_vbus_in(), pct);      // power-aware brightness
 
     check_serial_cmd();
 
